@@ -183,9 +183,9 @@ namespace esctasy
             break;
         case SPAWNER_PAGE:
             addVehicle("Adder", "adder");
-            addVehicle("Zentorno", "zentorno");
+            addVehicle("Cheetah", "cheetah");
             addVehicle("Entity XF", "entityxf");
-            addVehicle("T20", "t20");
+            addVehicle("Comet", "comet2");
             addVehicle("Sultan", "sultan");
             addVehicle("Elegy RH8", "elegy2");
             addVehicle("Banshee", "banshee");
