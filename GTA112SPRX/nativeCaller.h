@@ -16,13 +16,23 @@ struct NativeArg_s
 	unsigned int ReadCount;
 };
 
-static NativeArg_s* NativeArg = (NativeArg_s*)0x10060000; //Open space addr
+#if defined(ESCTASY_PS3DEV)
+static ScriptArg gNativeArgStorage[64] __attribute__((aligned(16)));
+static NativeArg_s gNativeArgContext;
+static NativeArg_s* NativeArg = &gNativeArgContext;
+#else
+static NativeArg_s* NativeArg = (NativeArg_s*)0x10060000;
+#endif
 
 void ResetArgs()
 {
 	NativeArg->ArgCount = 0;
 	NativeArg->ReadCount = 0;
-	NativeArg->ArgValues = (ScriptArg*)0x10050000;
+	#if defined(ESCTASY_PS3DEV)
+    NativeArg->ArgValues = gNativeArgStorage;
+#else
+    NativeArg->ArgValues = (ScriptArg*)0x10050000;
+#endif
 	NativeArg->ReturnValue = (int*)NativeArg->ArgValues;
 }
 template<typename T>

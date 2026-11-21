@@ -1,0 +1,64 @@
+# PS3DEV / PSL1GHT PPU port build.
+#
+# IMPORTANT: This produces a cross-compiled PPU ELF. It is NOT a usable
+# .sprx module until you apply a valid PRX export-table, relocation and
+# signing/packaging stage. Legacy PSL1GHT's sprxlinker is for import stubs;
+# do not rename an ELF or a SELF to .sprx.
+#
+# Source deliberately excludes Sony SDK prx.cpp and stdafx.cpp.
+SHELL := /bin/sh
+PS3DEV ?= /usr/local/ps3dev
+PSL1GHT ?= $(PS3DEV)
+CXX := $(PS3DEV)/ppu/bin/ppu-g++
+OBJDUMP := $(PS3DEV)/ppu/bin/ppu-objdump
+
+BUILDDIR := build/ps3dev
+SOURCE := GTA112SPRX/ps3dev/prx_ps3dev.cpp
+HEADERS := $(wildcard GTA112SPRX/*.h) GTA112SPRX/ps3dev/compat.h
+OBJECT := $(BUILDDIR)/prx_ps3dev.o
+ELF := $(BUILDDIR)/GTA112.elf
+
+INCLUDES := -I$(PSL1GHT)/ppu/include -I$(PS3DEV)/ppu/include -IGTA112SPRX
+CXXFLAGS := -std=gnu++11 -O2 -Wall -Wextra -Wno-unused-parameter \
+            -Wno-write-strings -Wno-deprecated-declarations \
+            -fno-exceptions -fno-rtti -fno-threadsafe-statics \
+            -mcpu=cell -mhard-float -fmodulo-sched \
+            -ffunction-sections -fdata-sections -DESCTASY_PS3DEV \
+            -D_GLIBCXX11_USE_C99_STDIO $(INCLUDES)
+LDFLAGS := -mcpu=cell -mhard-float -nostartfiles \
+           -Wl,-e,module_start -Wl,-q -Wl,-Map,$(BUILDDIR)/GTA112.map
+LIBPATHS := -L$(PSL1GHT)/ppu/lib -L$(PS3DEV)/ppu/lib
+LIBS := -llv2 -lrt -lm
+
+.PHONY: all preflight check elf sprx clean
+all: $(OBJECT)
+
+preflight:
+	@test -x "$(CXX)" || { echo "Missing $(CXX). Set PS3DEV=/usr/local/ps3dev"; exit 1; }
+	@test -f "$(PSL1GHT)/ppu/include/sys/thread.h" || { echo "Missing PSL1GHT headers. Set PSL1GHT correctly."; exit 1; }
+	@echo "PS3DEV compiler: $(CXX)"
+	@$(CXX) --version | head -n 1
+
+$(BUILDDIR):
+	@mkdir -p $@
+
+$(OBJECT): $(SOURCE) $(HEADERS) | $(BUILDDIR) preflight
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+check: $(OBJECT)
+	@echo "PS3DEV C++ object compiled: $(OBJECT)"
+
+elf: $(ELF)
+
+$(ELF): $(OBJECT)
+	$(CXX) $(LDFLAGS) $< $(LIBPATHS) $(LIBS) -o $@
+	@echo "Unpackaged PPU ELF: $@ (NOT a loadable .sprx)"
+
+sprx:
+	@echo "Cannot create an SPRX with the legacy PSL1GHT import-stub linker alone."
+	@echo "The port requires proper PRX module metadata, relocations and packaging."
+	@echo "Do not rename $(ELF) to GTA112.sprx."
+	@exit 2
+
+clean:
+	rm -rf $(BUILDDIR)
