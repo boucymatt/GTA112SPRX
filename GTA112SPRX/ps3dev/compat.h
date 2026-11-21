@@ -100,8 +100,3 @@ static char* ItoS(int number)
 }
 static char* ItoSH(int number) { return ItoS(number); }
 
-// The old source treats sleep()'s argument as milliseconds.
-static void sleep(unsigned int ms)
-{
-    usleep(static_cast<useconds_t>(ms) * 1000U);
-}
