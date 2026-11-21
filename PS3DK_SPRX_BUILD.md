@@ -16,17 +16,25 @@ Install the newer PS3DK toolchain in a *different directory* so it does not over
 sudo pacman -S --needed base-devel gcc gmp mpfr libmpc isl zlib readline ncurses expat openssl libelf python rust git wget bison flex texinfo cmake ninja patch zip unzip
 
 git clone https://github.com/FirebirdTA01/PS3DK.git ~/PS3DK
-cd ~/PS3DK
+cd /home/boucy/PS3DK
+# IMPORTANT: a previously exported PS3DEV=/usr/local/ps3dev is retained
+# by env.sh and would mix your old SDK with the new one.
+unset PS3DEV PS3DK PSL1GHT PPU_PREFIX SPU_PREFIX
 source ./scripts/env.sh
 ./scripts/bootstrap.sh
 # Follow docs/building.md's ordered toolchain and SDK stages.
 ```
 
-The PS3DK environment script normally assigns a separate staged `$PS3DEV` and `$PS3DK`. Keep this shell for the modern build; a fresh terminal can keep using the old `/usr/local/ps3dev`.
+The PS3DK environment script uses `$PS3DEV` *if already defined*, otherwise it defaults to the separate `$PS3_TOOLCHAIN_ROOT/stage/ps3dev`. Unset an old `PS3DEV=/usr/local/ps3dev` before sourcing it, as shown above. `$PS3DK` then points to the staged `ps3dk` directory. Keep this shell for the modern build; a fresh terminal can keep using the old `/usr/local/ps3dev`.
 
 Check prerequisites after installation:
 
 ```bash
+sudo pacman -S --needed ninja
+echo "$PS3DEV"
+echo "$PS3DK"
+test -f "$PS3_TOOLCHAIN_ROOT/cmake/ps3-ppu-toolchain.cmake" || echo "Missing CMake toolchain definition"
+test -x "$PS3DEV/ppu/bin/powerpc64-ps3-elf-g++" || echo "Modern PPU compiler not yet built"
 powerpc64-ps3-elf-g++ --version
 command -v prx-gen
 command -v make_sprx
@@ -40,15 +48,18 @@ test -f "$PS3DK/ppu/lib/lv2-prx.specs"
 The PRX configuration is now in `ps3dk/CMakeLists.txt`.
 
 ```bash
-cd ~/GTA112SPRX
+cd /home/boucy/Documents/Esctasy/GTA112SPRX
 git fetch origin
 git switch feature/esctasy-ps3-menu
 git pull --ff-only
 
+# Discard the partial CMake configure cache created with the old SDK.
+rm -rf build/ps3dk
+
 # Use the env.sh exports from the PS3DK source checkout.
 # For Linux source installs, the documented CMake toolchain is:
 cmake -S ps3dk -B build/ps3dk -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE="$PS3DK/../cmake/ps3-ppu-toolchain.cmake"
+  -DCMAKE_TOOLCHAIN_FILE="$PS3_TOOLCHAIN_ROOT/cmake/ps3-ppu-toolchain.cmake"
 
 cmake --build build/ps3dk -v
 ```
@@ -72,6 +83,6 @@ These are **not** guaranteed runtime-tested plugins. This CMake configuration is
 Log modern-build failures with:
 
 ```bash
-cmake -S ps3dk -B build/ps3dk -G Ninja -DCMAKE_TOOLCHAIN_FILE="$PS3DK/../cmake/ps3-ppu-toolchain.cmake" 2>&1 | tee ps3dk-configure.log
+cmake -S ps3dk -B build/ps3dk -G Ninja -DCMAKE_TOOLCHAIN_FILE="$PS3_TOOLCHAIN_ROOT/cmake/ps3-ppu-toolchain.cmake" 2>&1 | tee ps3dk-configure.log
 cmake --build build/ps3dk -v 2>&1 | tee ps3dk-build.log
 ```
