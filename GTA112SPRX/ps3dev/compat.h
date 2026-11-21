@@ -13,13 +13,32 @@
 #define __NO_INLINE __attribute__((noinline))
 #define __NAKED __attribute__((naked)) __attribute__((noinline))
 
-// The target game's PPU ABI uses 8-byte function descriptors (entry, TOC).
-// We keep its original descriptor for chaining native hooks.
-template<typename T>
-__ALWAYS_INLINE T (*call(unsigned int address, unsigned int toc = TOC))(...)
+// PPU ELFv1 function pointers refer to OPDs (entry address + TOC).
+// Build the descriptor within operator(), so it lives for the ENTIRE call.
+// Returning a pointer to a local OPD (as in the previous port) was invalid.
+template<typename R>
+struct PpuCallable
 {
-    volatile opd_s descriptor = {static_cast<int32_t>(address), static_cast<int32_t>(toc)};
-    return reinterpret_cast<T (*)(...)>(const_cast<opd_s*>(&descriptor));
+    uint32_t entry;
+    uint32_t toc;
+    PpuCallable(uintptr_t functionAddress, uintptr_t tocAddress)
+      : entry(static_cast<uint32_t>(functionAddress)),
+        toc(static_cast<uint32_t>(tocAddress)) {}
+
+    template<typename... Args>
+    R operator()(Args... args) const
+    {
+        __opd_s__ descriptor = {static_cast<int32_t>(entry), static_cast<int32_t>(toc)};
+        typedef R (*GtaFunction)(...);
+        GtaFunction fn = reinterpret_cast<GtaFunction>(&descriptor);
+        return fn(args...);
+    }
+};
+
+template<typename R>
+__ALWAYS_INLINE PpuCallable<R> call(unsigned int address, unsigned int toc = TOC)
+{
+    return PpuCallable<R>(address, toc);
 }
 
 // On CFW where the target page is writable, change 4 PPU instructions.

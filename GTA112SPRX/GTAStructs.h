@@ -2,10 +2,13 @@
 
 
 //some useful defines
-#define VALID_ADDR(x) ((unsigned int)(x) > 0x10000)
+#define VALID_ADDR(x) ((uintptr_t)(x) > 0x10000)
 typedef unsigned long long ui64;
+#ifndef ESCTASY_PS3DEV
+// PSL1GHT ppu-types.h already defines s64/u64 as int64_t/uint64_t.
 typedef long long s64;
 typedef unsigned long long u64;
+#endif
 typedef unsigned int ui32;
 typedef int s32;
 typedef unsigned char u8;
@@ -43,24 +46,29 @@ public:
 	Hooker() {}
 	void init(int addressOfOriginalFunction, int opdOfDetour) {
 		address = addressOfOriginalFunction;
-		memcpy((void*)orig, (void*)address, 4 * 4);
+		memcpy((void*)orig, (void*)(uintptr_t)address, 4 * 4);
 		PatchInJump(address, opdOfDetour, false);
-		memcpy((void*)patch, (void*)address, 4 * 4);
+		memcpy((void*)patch, (void*)(uintptr_t)address, 4 * 4);
 	}
 	void unhook() {
-		memcpy((void*)address, (void*)orig, 4 * 4);
+		memcpy((void*)(uintptr_t)address, (void*)orig, 4 * 4);
 		//sync_mem(address);//optional
 	}
 	void rehook() {
-		memcpy((void*)address, (void*)patch, 4 * 4);
+		memcpy((void*)(uintptr_t)address, (void*)patch, 4 * 4);
 		//sync_mem(address);//optional
 	}
-	template <typename T>
-	T(*call())(...) {
-		volatile opd_s opd = { address,TOC };
-		T(*func)(...) = (T(*)(...)) & opd;
-		return func;
-	}
+	#ifdef ESCTASY_PS3DEV
+    template <typename T>
+    PpuCallable<T> call() { return PpuCallable<T>(address, TOC); }
+#else
+    template <typename T>
+    T(*call())(...) {
+        opd_s opd = { address, TOC };
+        T(*func)(...) = (T(*)(...)) &opd;
+        return func;
+    }
+#endif
 };
 
 //https://gta.nick7.com/stuff/gta5/ps3-classes.txt
@@ -123,19 +131,30 @@ typedef struct
 struct ClassData {//this would be the 0x19...
 	unsigned int base;
 
-	unsigned int getClassDataAddress() {
-		return (unsigned int)&base;
-	}
+	uintptr_t getClassDataAddress() {
+        return reinterpret_cast<uintptr_t>(&base);
+    }
 	char* className() {
 		return getClassName(getClassDataAddress());
 	}
 	//alternate us using the typedef fnptr and doing fnptr call(unsigned int offset)...
-	template <typename T>
-	T(*call(unsigned int offset))(...) {//currently untested
-		unsigned int __opd_s = *(volatile unsigned int*)(getClassDataAddress() + offset);
-		T(*func)(...) = (T(*)(...)) & __opd_s;
-		return func;
-	}
+	#ifdef ESCTASY_PS3DEV
+    template <typename T>
+    PpuCallable<T> call(unsigned int offset) {
+        // GTA vtable entries point at 8-byte PPU function descriptors.
+        const uintptr_t tableEntry = getClassDataAddress() + offset;
+        const uint32_t descriptorPtr = *reinterpret_cast<volatile uint32_t*>(tableEntry);
+        const uint32_t* opd = reinterpret_cast<const uint32_t*>((uintptr_t)descriptorPtr);
+        return PpuCallable<T>(opd[0], opd[1]);
+    }
+#else
+    template <typename T>
+    T(*call(unsigned int offset))(...) {//legacy, untested
+        unsigned int __opd_s = *(volatile unsigned int*)(getClassDataAddress() + offset);
+        T(*func)(...) = (T(*)(...)) & __opd_s;
+        return func;
+    }
+#endif
 	/*template <typename RET>
 	fnptr<RET> call(unsigned int offset) {
 		unsigned int opd_s = *(volatile unsigned int*)(getClassDataAddress()+offset);
@@ -231,7 +250,7 @@ struct GtaThread {
 
 	void setLocal(int local, int value) {
 		if (VALID_ADDR(localDataPointer))
-			*(int*)((int)localDataPointer + (local * 4)) = value;
+			*(int*)(reinterpret_cast<uintptr_t>(localDataPointer) + (local * 4)) = value;
 	}
 	void terminate() {
 		//call<void>(0x46D6F8)(&classData);
@@ -263,7 +282,7 @@ struct CGameScriptHandlerNetComponent {//this is used for setting memory in scri
 	unsigned int unk1;//0x8  -- used in some places
 	//0x34 is a cnetgameplayer
 	int getHost() {
-		unsigned int unkStruct = *(unsigned int*)((unsigned int)this + 0x1C);
+		unsigned int unkStruct = *(unsigned int*)(reinterpret_cast<uintptr_t>(this) + 0x1C);
 		if (unkStruct == 0)
 			return -1;
 		CNetGamePlayer* p = (CNetGamePlayer*) *(int*)(unkStruct + 0x8);
@@ -291,7 +310,7 @@ struct CGamePlayerBroadcastDataHandler_Remote {//size of 0xF8
 	char scriptName[7 * 4];//0x130 idk the size of it, I just know it's at 0x130
 	//unsure after this because idk the size of CGameScriptId
 	unsigned int getAddressOfCopiedOverData() {
-		return *(unsigned int*)((unsigned int)this + 0xD0);
+		return *(unsigned int*)(reinterpret_cast<uintptr_t>(this) + 0xD0);
 	}
 };
 struct CGamePlayerBroadcastDataHandler_Local : CGamePlayerBroadcastDataHandler_Remote {};//size of 0x164 according to address 0x130C858
@@ -574,9 +593,9 @@ public:
 
 class Struct {
 public:
-	unsigned int address;
+	uintptr_t address;
 	Struct(unsigned int* data)
-		: address((unsigned int)data)
+		: address(reinterpret_cast<uintptr_t>(data))
 	{}
 	Struct imm(int i) {
 		return Struct((unsigned int*)(((unsigned int)address) + (i * 4)));
@@ -608,7 +627,7 @@ public:
 
 	}
 	void* get(unsigned int offset) {
-		return (void*)((unsigned int)stack + (size - offset));
+		return (void*)(reinterpret_cast<uintptr_t>(stack) + (size - offset));
 	}
 	template <typename T>
 	void setArg(unsigned int offset, T value) {

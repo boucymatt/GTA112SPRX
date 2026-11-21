@@ -185,8 +185,11 @@ void native_ret1_hook(int r3) {
 	*(int*)(*(int*)(r3)+0x0) = 1;
 }
 
-void patchNative(unsigned int hash, int hook) {
-	*(uint64_t*)getOPDOfNative(hash) = *(uint64_t*)(hook);
+void patchNative(unsigned int hash, uintptr_t hook) {
+    const int target = getOPDOfNative(hash);
+    if (target < 0x10000 || hook < 0x10000) return;
+    // Function pointers on PS3 point to an OPD descriptor.
+    *(volatile uint64_t*)(uintptr_t)target = *(const uint64_t*)hook;
 }
 
 void setup_textmessage_fix() {
@@ -198,23 +201,23 @@ void setup_textmessage_fix() {
                             iVar10 = _0x4D8A6521(*uParam1);//SC_PROFANITY_GET_STRING_STATUS, probably 0 is good
 	*/
 
-	patchNative(0xFFED3676, (int)native_ret1_hook);
-	patchNative(0xA796D7A7, (int)native_ret0_hook);
-	patchNative(0x4D8A6521, (int)native_ret0_hook);
+	patchNative(0xFFED3676, (uintptr_t)&native_ret1_hook);
+	patchNative(0xA796D7A7, (uintptr_t)&native_ret0_hook);
+	patchNative(0x4D8A6521, (uintptr_t)&native_ret0_hook);
 }
 
 void setup_stats_fix() {
 	//ARE_ONLINE_POLICIES_UP_TO_DATE native bypass (skips policy signing)
-	patchNative(0x850690FF, (int)native_ret1_hook);
+	patchNative(0x850690FF, (uintptr_t)&native_ret1_hook);
 
 	//FORCE_CLOUD_MP_STATS_DOWNLOAD_AND_OVERWRITE_LOCAL_SAVE native disable (this one isn't necessary I don't think)
-	patchNative(0x3B4EF322, (int)native_ret0_hook);
+	patchNative(0x3B4EF322, (uintptr_t)&native_ret0_hook);
 
 	//DLC_CHECK_CLOUD_DATA_CORRECT native bypass
-	patchNative(0x881B1FDB, (int)native_ret1_hook);
+	patchNative(0x881B1FDB, (uintptr_t)&native_ret1_hook);
 
 	//NETWORK_IS_CLOUD_AVAILABLE native bypass... have to leave this in to get the temporary character creation
-	//patchNative(0xC7FF5AFC, (int)native_ret1_hook);
+	//patchNative(0xC7FF5AFC, (uintptr_t)&native_ret1_hook);
 	
 }
 
