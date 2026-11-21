@@ -48,3 +48,14 @@ if(_esctasy_link_items)
     list(REMOVE_DUPLICATES _esctasy_link_items)
     set_property(TARGET Esctasy112 PROPERTY LINK_LIBRARIES "${_esctasy_link_items}")
 endif()
+
+# Source-only EBOOT loader stub. This is compiled separately, NOT linked into
+# GTA112.prx: a real EBOOT patch needs the correct decrypted GTA V 1.12 ELF.
+# An object file alone cannot be copied into a signed EBOOT.BIN.
+add_library(EsctasyEbootLoader OBJECT
+    ../GTA112SPRX/eboot_loader/loader.c
+)
+target_compile_features(EsctasyEbootLoader PRIVATE c_std_11)
+target_compile_options(EsctasyEbootLoader PRIVATE
+    -O2 -Wall -Wextra -Wno-unused-parameter
+)
