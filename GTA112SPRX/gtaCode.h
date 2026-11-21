@@ -222,6 +222,7 @@ int findGlobalsPointer() {
 	//1.12 BLES sub_97CD7C
 	uint8_t *search = (uint8_t*)"\x3C\xA0\x01\xE7\x39\x00\x00\x00\x3C\x80\x01\xE7\x30\xA5\x03\x70\x61\x06\x00\x00\x30\x84\x04\x70";
 	uintptr_t addressptr = FindPattern(0x10200, 0x2269700, search, "xx??xxxxxx??xx??xxxxxx??");
+	if (addressptr < 0x10000) return 0;
 	unsigned int a = *(unsigned short*)(addressptr+2);//lis
 	short b = *(short*)(addressptr+0xE);//addic
 	return (a << 16) + b;
@@ -231,6 +232,7 @@ int findNativesPointer() {
 	//1.12 BLES sub_97C144
 	uint8_t *search = (uint8_t*)"\x3C\x60\x01\xDA\x3C\xC0\x01\xDB\x38\x80\x00\x00\x30\x63\x7B\xB0\x38\xA0\x01\x00\x98\x86\x82\x18\x7C\xA9\x03\xA6\x90\x83\x04\x00\x90\x83\x00\x00\x30\x63\x00\x04\x42\x00\xFF\xF8\x4E\x80\x00\x20";
 	uintptr_t addressptr = FindPattern(0x10200, 0x2269700, search, "xx??xx??xxxxxx??xxxx????xxxx????????xxxx????xxxx");
+	if (addressptr < 0x10000) return 0;
 	unsigned int a = *(unsigned short*)(addressptr+2);//lis
 	short b = *(short*)(addressptr+0xE);//addic
 	return (a << 16) + b;
@@ -241,6 +243,7 @@ int findEdatPatchPointer() {
 	//1.12 BLES 0x353D04
 	uint8_t *search = (uint8_t*)"\x38\xA0\x01\x00\x00\x00\x00\x00\x80\x7F\x00\x04\x63\xA4\x00\x00\x38\xA0\x00\x01\x38\xC0\x00\x00\x38\xE0\x00\x00";
 	uintptr_t addressptr = FindPattern(0x10200, 0x2269700, search, "xxxx????xxxxxxxxxxxxxxxxxxxx");
+	if (addressptr < 0x10000) return 0;
 	edatFunctionCallAddress = addressptr+0x1C + ((*(int*)(addressptr+0x1C))&0xFFFFFF - 1);
 	return addressptr + 0x10;
 }
