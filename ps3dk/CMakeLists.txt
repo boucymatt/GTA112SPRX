@@ -40,9 +40,9 @@ ps3_add_prx(Esctasy112
     SIGN
 )
 
-// Ensure the module metadata CRT object occurs only once. CMake's native
-// static-library dependency ordering can duplicate direct link inputs.
-// It is not safe to link two PRX CRT copies: both define the same module info.
+# Ensure the module metadata CRT object occurs only once. CMake's native
+# static-library dependency ordering can duplicate direct link inputs.
+# It is not safe to link two PRX CRT copies: both define the same module info.
 get_target_property(_esctasy_link_items Esctasy112 LINK_LIBRARIES)
 if(_esctasy_link_items)
     list(REMOVE_DUPLICATES _esctasy_link_items)
